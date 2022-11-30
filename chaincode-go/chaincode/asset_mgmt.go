@@ -7,9 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package chaincode
 
 import (
-
 	"fmt"
 	"log"
+
 	// "github.com/hyperledger/fabric-chaincode-go/shim"
 	"github.com/hyperledger/fabric-contract-api-go/contractapi"
 )
@@ -21,6 +21,7 @@ const transferAgreementObjectType = "transferAgreement"
 type SmartContract struct {
 	contractapi.Contract
 }
+
 // CreateAsset creates a new asset by placing the main asset details in the assetCollection
 // that can be read by both organizations. The appraisal value is stored in the owners org specific collection.
 func (s *SmartContract) IssueAsset(ctx contractapi.TransactionContextInterface) error {
@@ -67,8 +68,8 @@ func (s *SmartContract) TransferAssetMain(ctx contractapi.TransactionContextInte
 	// 	return fmt.Errorf("buyer org not found in the transient map")
 	// }
 
-	transientBuyerOrg := "Org2MSP";
-	
+	transientBuyerOrg := "Org2MSP"
+
 	err = s.TransferAsset(ctx, []byte(transientTransferJSON), string(transientBuyerOrg))
 	if err != nil {
 		return fmt.Errorf("Error tranfer the asset: %v", err)
@@ -78,4 +79,3 @@ func (s *SmartContract) TransferAssetMain(ctx contractapi.TransactionContextInte
 
 	return nil
 }
-

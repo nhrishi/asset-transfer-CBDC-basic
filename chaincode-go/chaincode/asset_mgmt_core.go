@@ -8,25 +8,26 @@ import (
 	"log"
 	"math/rand"
 	"strconv"
+
 	// "time"
 	// "github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/google/uuid"
+	"github.com/hyperledger/fabric-chaincode-go/pkg/statebased"
 	"github.com/hyperledger/fabric-chaincode-go/shim"
 	"github.com/hyperledger/fabric-contract-api-go/contractapi"
-	"github.com/hyperledger/fabric-chaincode-go/pkg/statebased"
 )
 
 // Asset describes main asset details that are visible to all organizations
 type Asset struct {
-	Type     string `json:"objectType"` //Type is used to distinguish the various types of objects in state database
-	AssetKey string `json:"assetKey"`
-	AssetID  string `json:"assetID"`
-	PrevID   string `json:"prevAssetID"`
-	Asset    string `json:"asset"`
+	Type     string  `json:"objectType"` //Type is used to distinguish the various types of objects in state database
+	AssetKey string  `json:"assetKey"`
+	AssetID  string  `json:"assetID"`
+	PrevID   string  `json:"prevAssetID"`
+	Asset    string  `json:"asset"`
 	Qty      float32 `json:"qty"`
-	Owner    string `json:"owner"`
-	Active   string `json:"active"`
-	Version  int `json:"version"`
+	Owner    string  `json:"owner"`
+	Active   string  `json:"active"`
+	Version  int     `json:"version"`
 }
 
 type BuyerOrg struct {
@@ -73,7 +74,7 @@ func (s *SmartContract) CreateAsset(ctx contractapi.TransactionContextInterface,
 
 	// Persist private immutable asset properties to owner's private data collection
 	ownerCollection := buildCollectionName(clientOrgID)
-	
+
 	// Check if asset already exists
 	// assetAsBytes, err := ctx.GetStub().GetPrivateData(ownerCollection, assetInput.AssetKey)
 	// if err != nil {
@@ -92,20 +93,20 @@ func (s *SmartContract) CreateAsset(ctx contractapi.TransactionContextInterface,
 
 	newAssetKey, err := ctx.GetStub().CreateCompositeKey(assetInput.Type, []string{uuidAsset.String(), "-", timestamp})
 	if err != nil {
-		return []byte("Error"),fmt.Errorf("failed to create composite key for new asset: %v", err)
+		return []byte("Error"), fmt.Errorf("failed to create composite key for new asset: %v", err)
 	}
 
 	// Make submitting client the owner
 	asset := Asset{
-		Type: assetInput.Type,
-		AssetKey : newAssetKey,
-		AssetID: uuidAsset.String(),
-		PrevID: assetInput.PrevID,
-		Asset: assetInput.Asset,
-		Qty:  assetInput.Qty,
-		Owner: assetInput.Owner,
-		Active: "A",
-		Version : 0,
+		Type:     assetInput.Type,
+		AssetKey: newAssetKey,
+		AssetID:  uuidAsset.String(),
+		PrevID:   assetInput.PrevID,
+		Asset:    assetInput.Asset,
+		Qty:      assetInput.Qty,
+		Owner:    assetInput.Owner,
+		Active:   "A",
+		Version:  0,
 	}
 	assetJSONasBytes, err := json.Marshal(asset)
 	if err != nil {
@@ -115,13 +116,13 @@ func (s *SmartContract) CreateAsset(ctx contractapi.TransactionContextInterface,
 	// Save asset to private data collection
 	// Typical logger, logs to stdout/file in the fabric managed docker container, running this chaincode
 	// Look for container name like dev-peer0.org1.example.com-{chaincodename_version}-xyz
-	log.Printf("CreateAsset Put: collection %v, ID %v, owner %v", ownerCollection, newAssetKey,  clientOrgID)
+	log.Printf("CreateAsset Put: collection %v, ID %v, owner %v", ownerCollection, newAssetKey, clientOrgID)
 
 	err = ctx.GetStub().PutPrivateData(ownerCollection, newAssetKey, assetJSONasBytes)
 	if err != nil {
 		return []byte("Error"), fmt.Errorf("failed to put asset into private data collecton: %v", err)
 	}
-	
+
 	// Set the endorsement policy such that an owner org peer is required to endorse future updates.
 	// In practice, consider additional endorsers such as a trusted third party to further secure transfers.
 	endorsingOrgs := []string{clientOrgID}
@@ -169,7 +170,7 @@ func (s *SmartContract) TransferAsset(ctx contractapi.TransactionContextInterfac
 	}
 
 	log.Printf("clientOrgID: %v %v", clientOrgID, buyerOrg)
-	transferAssetState(ctx, &assetTransferInput,clientOrgID, buyerOrg );
+	transferAssetState(ctx, &assetTransferInput, clientOrgID, buyerOrg)
 
 	return nil
 }
@@ -179,26 +180,15 @@ func transferAssetState(ctx contractapi.TransactionContextInterface, asset *Asse
 	// New owner asset creation
 	newOwnerCollection := buildCollectionName(buyerOrgID)
 
-	timestamp, err := getTimestamp()
-	if err != nil {
-		return fmt.Errorf("failed to get timestamp: %v", err)
-	}
-
-	newAssetKey, err := ctx.GetStub().CreateCompositeKey(asset.Type, []string{asset.AssetID, "-", timestamp})
-	if err != nil {
-		return fmt.Errorf("failed to create composite key for new asset: %v", err)
-	}
-
 	// Update ownership in public state
 	asset.Owner = buyerOrgID
-	asset.AssetKey = newAssetKey
+
+	// asset.AssetKey = newAssetKey
 	updatedAsset, err := json.Marshal(asset)
 	if err != nil {
 		return err
-	}	
+	}
 
-	// //Generating new uuid for assetID
-	// uuidAsset := uuid.New()
 	log.Printf("CreateAsset Put: collection %v, ID %v, owner %v", newOwnerCollection, asset.AssetID, asset.AssetKey, buyerOrgID)
 
 	err = ctx.GetStub().PutPrivateData(newOwnerCollection, asset.AssetKey, updatedAsset)
@@ -215,7 +205,6 @@ func transferAssetState(ctx contractapi.TransactionContextInterface, asset *Asse
 
 	return nil
 }
-
 
 // getCollectionName is an internal helper function to get collection of submitting client identity.
 func getCollectionName(ctx contractapi.TransactionContextInterface) (string, error) {
@@ -282,6 +271,7 @@ func setAssetStateBasedEndorsement(ctx contractapi.TransactionContextInterface, 
 
 	return nil
 }
+
 // setAssetPrivateStateBasedEndorsement adds an endorsement policy to an asset so that the passed orgs need to agree upon transfer
 func setAssetPrivateStateBasedEndorsement(ctx contractapi.TransactionContextInterface, collection string, assetID string, orgsToEndorse []string) error {
 	endorsementPolicy, err := statebased.NewStateEP(nil)
